@@ -1,6 +1,9 @@
 package com.app.SpringSecurityApp.config.security;
 
+import com.app.SpringSecurityApp.config.filter.JwtTokenValidator;
 import com.app.SpringSecurityApp.service.UserDetailServiceImpl;
+import com.app.SpringSecurityApp.util.JwtUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -16,12 +19,19 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    private final JwtUtils jwtUtils;
+
+    public SecurityConfig(JwtUtils jwtUtils) {
+        this.jwtUtils = jwtUtils;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
@@ -40,11 +50,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(http -> {
 
                     //Publicos
-                    http.requestMatchers(HttpMethod.GET, "/auth/get").permitAll();
+                    http.requestMatchers(HttpMethod.POST, "/auth/**").permitAll();
 
                     //Privados
-                    http.requestMatchers(HttpMethod.POST, "/auth/post").hasAnyRole("ADMIN","DEVELOPER");
-                    http.requestMatchers(HttpMethod.PATCH, "/auth/patch").hasAnyAuthority("REFACTOR");
+                    http.requestMatchers(HttpMethod.POST, "/method/post").hasAnyRole("ADMIN","DEVELOPER");
+                    http.requestMatchers(HttpMethod.PATCH, "/method/patch").hasAnyAuthority("REFACTOR");
 
                     //Denegar acceso a cualquier endpoint no especificado
                     http.anyRequest().denyAll();
@@ -52,6 +62,9 @@ public class SecurityConfig {
                     //Denegar acceso a cualquier endpoint no especificado si no se esta autenticado antes
                     //http.anyRequest().authenticated();
                 })
+
+                //Validamos el token antes de BasicAuthenticationFilter
+                .addFilterBefore( new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
                 .build();
     }
 

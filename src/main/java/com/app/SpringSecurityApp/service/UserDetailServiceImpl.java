@@ -1,15 +1,20 @@
 package com.app.SpringSecurityApp.service;
 
+import com.app.SpringSecurityApp.controller.dto.AuthCreateUserRequest;
 import com.app.SpringSecurityApp.controller.dto.AuthLoginRequest;
 import com.app.SpringSecurityApp.controller.dto.AuthResponse;
+import com.app.SpringSecurityApp.persistence.entity.RoleEntity;
 import com.app.SpringSecurityApp.persistence.entity.UserEntity;
+import com.app.SpringSecurityApp.repository.RoleRepository;
 import com.app.SpringSecurityApp.repository.UserRepository;
 import com.app.SpringSecurityApp.util.JwtUtils;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,12 +25,17 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class UserDetailServiceImpl implements UserDetailsService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
 
     @Autowired
     private JwtUtils jwtUtils;
@@ -99,6 +109,61 @@ public class UserDetailServiceImpl implements UserDetailsService {
         }
 
         return new UsernamePasswordAuthenticationToken(username, userDetails.getPassword(), userDetails.getAuthorities());
+
+    }
+
+    //Metodo para registrar usuario
+    public AuthResponse createUser(AuthCreateUserRequest authCreateUserRequest) {
+
+        String username = authCreateUserRequest.username();
+        String password = authCreateUserRequest.password();
+        List<String> roleRequest = authCreateUserRequest.roleRequest().roleListName();
+
+        //Comparo los roles que recibo por request con los de la base de datos
+        Set<RoleEntity> roleEntitySet = roleRepository.findRoleEntitiesByRoleEnumIn(roleRequest).stream().collect(Collectors.toSet());
+
+        if (roleEntitySet.isEmpty()) {
+            throw new IllegalArgumentException("The specified roles does not exist");
+        }
+
+        //Creamos un user con los datos del request
+        UserEntity userEntity = UserEntity.builder()
+                .username(username)
+                .password(passwordEncoder.encode(password))
+                .roles(roleEntitySet)
+                .isEnabled(true)
+                .accountNoLocked(true)
+                .accountNoExpired(true)
+                .credentialNoExpired(true)
+                .build();
+
+        UserEntity userCreated = userRepository.save(userEntity);
+
+        ArrayList<SimpleGrantedAuthority> authorityList = new ArrayList<>();
+
+        //Obtenemos los roles del usuario y los pasamos a la authority list
+        userCreated.getRoles().forEach(role -> authorityList.add(new SimpleGrantedAuthority("ROLE_".concat(role.getRoleEnum().name()))));
+
+        //Obtenemos los permisos del usuario y los pasamos a la authority list
+        userCreated.getRoles()
+                .stream()
+                .flatMap(role -> role.getPermissionList().stream())
+                .forEach(permisssion -> authorityList.add(new SimpleGrantedAuthority(permisssion.getName())));
+
+
+        //Agregamos el usuario al contexto
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+
+        //Creamos el objeto de authentication
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userCreated.getUsername(), userCreated.getPassword(), authorityList);
+
+        //Creamos el token
+        String accesToken = jwtUtils.createToken(authentication);
+
+        //Creamos el objeto AuthResponse para devolver en el return
+        AuthResponse authResponse = new AuthResponse(userCreated.getUsername(), "User created succesfully", accesToken, true);
+
+        return authResponse;
 
     }
 }

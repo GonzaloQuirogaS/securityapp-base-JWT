@@ -53,8 +53,9 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.POST, "/auth/**").permitAll();
 
                     //Privados
-                    http.requestMatchers(HttpMethod.POST, "/method/post").hasAnyRole("ADMIN","DEVELOPER");
+                    http.requestMatchers(HttpMethod.POST, "/method/post").hasAnyRole("ADMIN", "DEVELOPER");
                     http.requestMatchers(HttpMethod.PATCH, "/method/patch").hasAnyAuthority("REFACTOR");
+                    http.requestMatchers(HttpMethod.GET, "/method/get").hasAnyAuthority("READ");
 
                     //Denegar acceso a cualquier endpoint no especificado
                     http.anyRequest().denyAll();
@@ -64,7 +65,7 @@ public class SecurityConfig {
                 })
 
                 //Validamos el token antes de BasicAuthenticationFilter
-                .addFilterBefore( new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
+                .addFilterBefore(new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
                 .build();
     }
 
@@ -94,7 +95,6 @@ public class SecurityConfig {
         //Solo para pruebas
         // return NoOpPasswordEncoder.getInstance();
     }
-
 
 
 }

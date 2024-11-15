@@ -1,5 +1,6 @@
 package com.app.SpringSecurityApp.controller;
 
+import com.app.SpringSecurityApp.controller.dto.AuthCreateUserRequest;
 import com.app.SpringSecurityApp.controller.dto.AuthLoginRequest;
 import com.app.SpringSecurityApp.controller.dto.AuthResponse;
 import com.app.SpringSecurityApp.service.UserDetailServiceImpl;
@@ -26,6 +27,11 @@ public class AuthenticationController {
 
         return new ResponseEntity<>(this.userDetailService.loginUser(userRequest), HttpStatus.OK);
 
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<AuthResponse> register(@RequestBody @Valid AuthCreateUserRequest authCreateUser) {
+        return new ResponseEntity<>(this.userDetailService.createUser(authCreateUser), HttpStatus.CREATED);
     }
 
 }
